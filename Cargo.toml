@@ -2,10 +2,10 @@
 name = "mping"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Lai Shane <renylai@gmail.com>"]
 description = "A cross-platform multi-target ping tool"
 license = "MIT"
-repository = "https://github.com/yourusername/mping"
+repository = "https://github.com/laishane/mping"
 
 [dependencies]
 tokio = { version = "1.28", features = ["full"] }

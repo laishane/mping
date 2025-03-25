@@ -30,7 +30,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/mping.git
+git clone https://github.com/laishane/mping.git
 cd mping
 
 # 编译
