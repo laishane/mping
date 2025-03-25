@@ -14,7 +14,6 @@ use tokio::io::AsyncWriteExt;
 use tokio::time::{Duration, sleep};
 use futures::future::join_all;
 use tokio::task::JoinHandle;
-use ctrlc::set_handler;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -40,10 +39,11 @@ async fn main() -> Result<()> {
 
     // Setup Ctrl+C handler with specific configuration
     let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
     
     #[cfg(windows)]
     {
+        use ctrlc::set_handler;
+        let r = running.clone();
         set_handler(move || {
             println!("\nReceived Ctrl+C, stopping all ping tasks...");
             r.store(false, Ordering::SeqCst);
@@ -53,7 +53,21 @@ async fn main() -> Result<()> {
     #[cfg(unix)]
     {
         use signal_hook::consts::SIGINT;
-        signal_hook::flag::register(SIGINT, running.clone())?;
+        use signal_hook::flag::register;
+        use signal_hook::iterator::Signals;
+        
+        // 创建一个新的信号处理器
+        let mut signals = Signals::new(&[SIGINT])?;
+        let r = running.clone();
+        
+        // 在后台线程中处理信号
+        std::thread::spawn(move || {
+            for _ in signals.forever() {
+                println!("\nReceived Ctrl+C, stopping all ping tasks...");
+                r.store(false, Ordering::SeqCst);
+                break;
+            }
+        });
     }
 
     // Initialize pinger based on protocol
@@ -93,22 +107,34 @@ async fn main() -> Result<()> {
                     stats.update(&result);
 
                     if display {
+                        let status = if result.success {
+                            "Success".to_string()
+                        } else {
+                            result.error_msg.clone().unwrap_or_else(|| "Failed".to_string())
+                        };
+                        
                         println!(
                             "Target: {} Time: {} Status: {} RTT: {}ms",
                             result.target,
                             result.timestamp.format("%Y-%m-%d %H:%M:%S"),
-                            if result.success { "Success" } else { "Failed" },
+                            status,
                             result.rtt.as_millis()
                         );
                     }
                 }
 
                 if let Some(ref mut file) = log_file {
+                    let status = if result.success {
+                        "Success".to_string()
+                    } else {
+                        result.error_msg.clone().unwrap_or_else(|| "Failed".to_string())
+                    };
+                    
                     let log_entry = format!(
                         "{},{},{},{}\n",
                         result.target,
                         result.timestamp.format("%Y-%m-%d %H:%M:%S"),
-                        if result.success { "Success" } else { "Failed" },
+                        status,
                         result.rtt.as_millis()
                     );
                     file.write_all(log_entry.as_bytes()).await?;
@@ -129,7 +155,7 @@ async fn main() -> Result<()> {
     // Print final statistics
     let stats = stats_collector.lock().await;
     let stats_text = stats.format_all_stats();
-    println!("\nFinal Statistics:");
+    println!("Final Statistics:");
     println!("{}", stats_text);
 
     // Write final statistics to log file if specified

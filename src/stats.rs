@@ -99,7 +99,7 @@ impl StatsCollector {
     pub fn format_all_stats(&self) -> String {
         let mut output = String::new();
         for (target, stats) in &self.stats {
-            output.push_str(&format!("\nStatistics for {}:\n{}\n", target, stats.format_summary()));
+            output.push_str(&format!("Statistics for {}:\n{}", target, stats.format_summary()));
         }
         output
     }
